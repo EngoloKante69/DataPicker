@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog
 import pandas as pd
 
+
 class DataPickerApp:
     def __init__(self, root):
         self.root = root
@@ -30,9 +31,6 @@ class DataPickerApp:
 
         self.clear_selection_button = tk.Button(self.root, text="Clear Selection", command=self.clear_selection)
         self.clear_selection_button.pack(pady=5)
-
-        self.select_button = tk.Button(self.root, text="Select", command=self.select_variables)
-        self.select_button.pack(pady=10)
 
         self.compile_button = tk.Button(self.root, text="Compile", command=self.compile_data)
         self.compile_button.pack(pady=10)
@@ -79,13 +77,11 @@ class DataPickerApp:
 
     def clear_selection(self):
         self.variables_listbox.selection_clear(0, tk.END)
-
-    def select_variables(self):
-        selected_indices = self.variables_listbox.curselection()
-        self.selected_variables = [self.variables[i] for i in selected_indices]
-        print("Selected variables:", self.selected_variables)
+        self.data_text.delete(1.0, tk.END)  # Clear the compiled data
 
     def compile_data(self):
+        selected_indices = self.variables_listbox.curselection()
+        self.selected_variables = [self.variables[i] for i in selected_indices]
         if self.selected_variables:
             df = pd.read_excel(self.file_path) if self.file_path.endswith('.xls') or self.file_path.endswith('.xlsx') else pd.read_csv(self.file_path)
             self.selected_data = df[self.selected_variables]
