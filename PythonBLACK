@@ -1,0 +1,103 @@
+import tkinter as tk
+from tkinter import filedialog
+import pandas as pd
+
+
+class DataPickerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Data Picker")
+        self.file_path = None
+        self.variables = []
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.upload_button = tk.Button(self.root, text="Upload File", command=self.upload_file)
+        self.upload_button.pack(pady=10)
+
+        self.variables_label = tk.Label(self.root, text="Variables:")
+        self.variables_label.pack()
+
+        # Make the listbox wider and taller by specifying its width and height
+        self.variables_listbox = tk.Listbox(self.root, selectmode=tk.MULTIPLE, width=50, height=15)
+        self.variables_listbox.pack()
+
+        # Entry widget for find feature
+        self.find_entry = tk.Entry(self.root)
+        self.find_entry.pack(pady=5)
+
+        self.find_button = tk.Button(self.root, text="Find", command=self.find_variable)
+        self.find_button.pack(pady=5)
+
+        # Bind <Return> event to find_variable method
+        self.find_entry.bind('<Return>', lambda event: self.find_variable())
+
+        self.clear_selection_button = tk.Button(self.root, text="Clear Selection", command=self.clear_selection)
+        self.clear_selection_button.pack(pady=5)
+
+        self.select_button = tk.Button(self.root, text="Select", command=self.select_variables)
+        self.select_button.pack(pady=10)
+
+        self.submit_button = tk.Button(self.root, text="Submit", command=self.submit_selection)
+        self.submit_button.pack(pady=10)
+
+    def upload_file(self):
+        self.file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xls;*.xlsx")])
+        if self.file_path:
+            self.variables = self.get_variables_from_file()
+            self.update_variables_listbox()
+
+    def get_variables_from_file(self):
+        if self.file_path.endswith('.csv'):
+            df = pd.read_csv(self.file_path)
+        elif self.file_path.endswith('.xls') or self.file_path.endswith('.xlsx'):
+            df = pd.read_excel(self.file_path)
+        # Filter out columns that contain numbers
+        return [col for col in df.columns if df[col].dtype == 'object' and not any(char.isdigit() for char in col)]
+
+    def update_variables_listbox(self):
+        self.variables_listbox.delete(0, tk.END)
+        for var in self.variables:
+            self.variables_listbox.insert(tk.END, var)
+
+    def find_variable(self):
+        search_text = self.find_entry.get().strip().lower()
+        if search_text:
+            matching_indices = []
+            non_matching_indices = []
+            for i, var in enumerate(self.variables):
+                if search_text in var.lower():
+                    matching_indices.append(i)
+                else:
+                    non_matching_indices.append(i)
+            self.variables_listbox.selection_clear(0, tk.END)  # Clear previous selections
+            self.variables_listbox.delete(0, tk.END)  # Clear current listbox contents
+            # Insert matching variables at the top with highlighting
+            for i in matching_indices:
+                self.variables_listbox.insert(tk.END, self.variables[i])
+                self.variables_listbox.itemconfig(tk.END, bg="yellow")  # Highlight the matching item
+            # Insert non-matching variables afterwards
+            for i in non_matching_indices:
+                self.variables_listbox.insert(tk.END, self.variables[i])
+                self.variables_listbox.itemconfig(tk.END, bg="white")  # Reset background color for non-matching items
+
+    def clear_selection(self):
+        self.variables_listbox.selection_clear(0, tk.END)
+
+    def select_variables(self):
+        selected_indices = self.variables_listbox.curselection()
+        self.selected_variables = [self.variables[i] for i in selected_indices]
+        print("Selected variables:", self.selected_variables)
+
+    def submit_selection(self):
+        if hasattr(self, 'selected_variables'):
+            # Do something with selected variables
+            print("Submitted selected variables:", self.selected_variables)
+        else:
+            print("Please select variables first!")
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = DataPickerApp(root)
+    root.mainloop()
