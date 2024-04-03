@@ -1,0 +1,118 @@
+import tkinter as tk
+from tkinter import filedialog
+import pandas as pd
+from pandastable import Table
+
+
+class DataPickerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Data Picker")
+        self.file_path = None
+        self.variables = []
+        self.selected_variables = []
+        self.selected_data = None
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Variables listbox
+        self.variables_label = tk.Label(self.root, text="Variables:")
+        self.variables_label.pack()
+
+        self.variables_listbox = tk.Listbox(self.root, selectmode=tk.MULTIPLE, width=50, height=15)
+        self.variables_listbox.pack(side=tk.LEFT, padx=10)
+
+        # Upload button
+        self.upload_button = tk.Button(self.root, text="Upload Datalog", command=self.upload_file)
+        self.upload_button.pack(pady=10)
+
+        # Find button
+        self.find_entry = tk.Entry(self.root)
+        self.find_entry.pack(pady=5)
+
+        self.find_button = tk.Button(self.root, text="Find", command=self.find_variable)
+        self.find_button.pack(pady=5)
+
+        # Clear selection button
+        self.clear_selection_button = tk.Button(self.root, text="Clear Selection", command=self.clear_selection)
+        self.clear_selection_button.pack(pady=5)
+
+        # Compile button
+        self.compile_button = tk.Button(self.root, text="Compile", command=self.compile_data)
+        self.compile_button.pack(pady=10)
+
+        # DataFrame container
+        self.data_frame_container = tk.Frame(self.root)
+        self.data_frame_container.pack(side=tk.RIGHT, padx=10)
+
+    def upload_file(self):
+        self.file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xls;*.xlsx")])
+        if self.file_path:
+            self.variables = self.get_variables_from_file()
+            self.update_variables_listbox()
+
+    def get_variables_from_file(self):
+        if self.file_path.endswith('.csv'):
+            df = pd.read_csv(self.file_path)
+        elif self.file_path.endswith('.xls') or self.file_path.endswith('.xlsx'):
+            df = pd.read_excel(self.file_path)
+        return [col for col in df.columns if df[col].dtype == 'object' and not any(char.isdigit() for char in col)]
+
+    def update_variables_listbox(self):
+        self.variables_listbox.delete(0, tk.END)
+        for var in self.variables:
+            self.variables_listbox.insert(tk.END, var)
+
+    def find_variable(self):
+        search_text = self.find_entry.get().strip().lower()
+        if search_text:
+            matching_indices = []
+            non_matching_indices = []
+            for i, var in enumerate(self.variables):
+                if search_text in var.lower():
+                    matching_indices.append(i)
+                else:
+                    non_matching_indices.append(i)
+            self.variables_listbox.selection_clear(0, tk.END)
+            self.variables_listbox.delete(0, tk.END)
+            for i in matching_indices:
+                self.variables_listbox.insert(tk.END, self.variables[i])
+                self.variables_listbox.itemconfig(tk.END, bg="yellow")
+            for i in non_matching_indices:
+                self.variables_listbox.insert(tk.END, self.variables[i])
+                self.variables_listbox.itemconfig(tk.END, bg="white")
+
+    def clear_selection(self):
+        self.variables_listbox.selection_clear(0, tk.END)
+        self.selected_data = None
+        self.update_data_frame()
+
+    def compile_data(self):
+        # Get the currently selected variables in the listbox
+        selected_vars = [self.variables_listbox.get(idx) for idx in self.variables_listbox.curselection()]
+
+        if selected_vars:
+            df = pd.read_excel(self.file_path) if self.file_path.endswith('.xls') or self.file_path.endswith(
+                '.xlsx') else pd.read_csv(self.file_path)
+
+            # Filter the DataFrame to include only the selected variables
+            self.selected_data = df[['Date Time'] + selected_vars]
+
+            # Update the data frame display
+            self.update_data_frame()
+
+    def update_data_frame(self):
+        # Clear the existing DataFrame container
+        for widget in self.data_frame_container.winfo_children():
+            widget.destroy()
+
+        # Display the selected data in a table format
+        if self.selected_data is not None:
+            table = Table(self.data_frame_container, dataframe=self.selected_data)
+            table.show()
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = DataPickerApp(root)
+    root.mainloop()
