@@ -7,10 +7,12 @@ class DataPickerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Data Picker")
+        self.root.attributes('-fullscreen', True)  # Fullscreen mode
         self.file_path = None
         self.variables = []
-        self.selected_data = None
+        self.selected_data = pd.DataFrame()  # Initialize with an empty DataFrame
         self.create_widgets()
+        self.root.attributes('-fullscreen', False)  # Exit fullscreen mode after creating widgets
 
     def create_widgets(self):
         # Upload button
@@ -25,7 +27,7 @@ class DataPickerApp:
         self.variables_label = tk.Label(variables_frame, text="Variables:")
         self.variables_label.pack()
 
-        self.variables_listbox = tk.Listbox(variables_frame, selectmode=tk.MULTIPLE, width=50, height=15)
+        self.variables_listbox = tk.Listbox(variables_frame, selectmode=tk.MULTIPLE, width=50, height=45)
         self.variables_listbox.pack(pady=5)
 
         # Find button
@@ -86,7 +88,7 @@ class DataPickerApp:
 
     def clear_selection(self):
         self.variables_listbox.selection_clear(0, tk.END)
-        self.selected_data = None
+        self.selected_data = pd.DataFrame()  # Clear the selected data
         self.update_data_frame()
 
     def compile_data(self):
@@ -109,9 +111,10 @@ class DataPickerApp:
             widget.destroy()
 
         # Display the selected data in a table format
-        if self.selected_data is not None:
-            table = Table(self.data_frame_container, dataframe=self.selected_data)
+        if not self.selected_data.empty:
+            table = Table(self.data_frame_container, dataframe=self.selected_data, width= 1920, height=1080)
             table.show()
+
 
 if __name__ == "__main__":
     root = tk.Tk()
