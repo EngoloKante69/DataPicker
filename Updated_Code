@@ -3,173 +3,161 @@ from tkinter import filedialog
 import pandas as pd
 from pandastable import Table
 import matplotlib.pyplot as plt
-
+import os
 
 class DataPickerApp:
-   def __init__(self, root):
-       self.root = root
-       self.root.title("Data Picker")
-       self.root.attributes('-fullscreen', True)  # Fullscreen mode
-       self.file_path = None
-       self.variables = []
-       self.selected_data = pd.DataFrame()  # Initialize with an empty DataFrame
-       self.create_widgets()
-       self.root.attributes('-fullscreen', False)  # Exit fullscreen mode after creating widgets
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Data Picker")
+        self.root.attributes('-fullscreen', True)  # Fullscreen mode
+        self.file_paths = []  # List to store multiple file paths
+        self.combined_df = pd.DataFrame()  # DataFrame to store combined data
+        self.variables = []
+        self.selected_data = pd.DataFrame()  # Initialize with an empty DataFrame
+        self.create_widgets()
+        self.root.attributes('-fullscreen', False)  # Exit fullscreen mode after creating widgets
 
+    def create_widgets(self):
+        # Upload button
+        self.upload_button = tk.Button(self.root, text="Upload Folder", command=self.upload_folder)
+        self.upload_button.pack(pady=10)
 
-   def create_widgets(self):
-       # Upload button
-       self.upload_button = tk.Button(self.root, text="Upload Datalog", command=self.upload_file)
-       self.upload_button.pack(pady=10)
+        # Combine button
+        self.combine_button = tk.Button(self.root, text="Combine Datalogs", command=self.combine_files)
+        self.combine_button.pack(pady=10)
 
+        # Variables frame
+        variables_frame = tk.Frame(self.root)
+        variables_frame.pack(side=tk.RIGHT, padx=10)
 
-       # Variables frame
-       variables_frame = tk.Frame(self.root)
-       variables_frame.pack(side=tk.RIGHT, padx=10)
+        # Variables listbox
+        self.variables_label = tk.Label(variables_frame, text="Variables:")
+        self.variables_label.pack()
 
+        self.variables_listbox = tk.Listbox(variables_frame, selectmode=tk.MULTIPLE, width=40, height=25)
+        self.variables_listbox.pack(pady=5)
 
-       # Variables listbox
-       self.variables_label = tk.Label(variables_frame, text="Variables:")
-       self.variables_label.pack()
+        # Find button
+        self.find_entry = tk.Entry(variables_frame)
+        self.find_entry.pack(pady=5)
 
+        self.find_button = tk.Button(variables_frame, text="Find", command=self.find_variable)
+        self.find_button.pack(pady=5)
 
-       self.variables_listbox = tk.Listbox(variables_frame, selectmode=tk.MULTIPLE, width=40, height=25)
-       self.variables_listbox.pack(pady=5)
+        # Clear selection button
+        self.clear_selection_button = tk.Button(variables_frame, text="Clear Selection", command=self.clear_selection)
+        self.clear_selection_button.pack(pady=5)
 
+        # Compile button
+        self.compile_button = tk.Button(variables_frame, text="Compile", command=self.compile_data)
+        self.compile_button.pack(pady=10)
 
-       # Find button
-       self.find_entry = tk.Entry(variables_frame)
-       self.find_entry.pack(pady=5)
+        # Graph button
+        self.plot_graph_button = tk.Button(variables_frame, text="Plot Graph", command=self.plot_graph)
+        self.plot_graph_button.pack(pady=10)
 
+        # DataFrame container
+        self.data_frame_container = tk.Frame(self.root)
+        self.data_frame_container.pack(pady=10)
 
-       self.find_button = tk.Button(variables_frame, text="Find", command=self.find_variable)
-       self.find_button.pack(pady=5)
+    def upload_folder(self):
+        folder_path = filedialog.askdirectory()
+        if folder_path:
+            self.file_paths = [os.path.join(folder_path, f) for f in os.listdir(folder_path)
+                               if f.endswith(('.csv', '.xls', '.xlsx'))]
+            if not self.file_paths:
+                print("No CSV or Excel files found in the selected folder.")
+            else:
+                print(f"Selected files: {self.file_paths}")
 
+    def combine_files(self):
+        if not self.file_paths:
+            print("No files selected.")
+            return
 
-       # Clear selection button
-       self.clear_selection_button = tk.Button(variables_frame, text="Clear Selection", command=self.clear_selection)
-       self.clear_selection_button.pack(pady=5)
+        all_dataframes = []
+        for file in self.file_paths:
+            if file.endswith('.csv'):
+                all_dataframes.append(pd.read_csv(file))
+            elif file.endswith('.xls') or file.endswith('.xlsx'):
+                all_dataframes.append(pd.read_excel(file))
 
+        self.combined_df = pd.concat(all_dataframes, ignore_index=True)
+        self.variables = [col for col in self.combined_df.columns if self.combined_df[col].dtype == 'object' and not any(char.isdigit() for char in col)]
+        self.update_variables_listbox()
+        print(f"Combined data from {len(self.file_paths)} files.")
 
-       # Compile button
-       self.compile_button = tk.Button(variables_frame, text="Compile", command=self.compile_data)
-       self.compile_button.pack(pady=10)
+    def update_variables_listbox(self):
+        self.variables_listbox.delete(0, tk.END)
+        for var in self.variables:
+            self.variables_listbox.insert(tk.END, var)
 
+    def find_variable(self):
+        search_text = self.find_entry.get().strip().lower()
+        if search_text:
+            matching_indices = []
+            non_matching_indices = []
+            for i, var in enumerate(self.variables):
+                if search_text in var.lower():
+                    matching_indices.append(i)
+                else:
+                    non_matching_indices.append(i)
+            self.variables_listbox.selection_clear(0, tk.END)
+            self.variables_listbox.delete(0, tk.END)
+            for i in matching_indices:
+                self.variables_listbox.insert(tk.END, self.variables[i])
+                self.variables_listbox.itemconfig(tk.END, bg="yellow")
+            for i in non_matching_indices:
+                self.variables_listbox.insert(tk.END, self.variables[i])
+                self.variables_listbox.itemconfig(tk.END, bg="white")
 
-       # Graph button
-       self.plot_graph_button = tk.Button(variables_frame, text="Plot Graph", command=self.plot_graph)
-       self.plot_graph_button.pack(pady=10)
+    def clear_selection(self):
+        self.variables_listbox.selection_clear(0, tk.END)
+        self.selected_data = pd.DataFrame()  # Clear the selected data
+        self.update_data_frame()
 
+    def compile_data(self):
+        # Get the currently selected variables in the listbox
+        selected_vars = [self.variables_listbox.get(idx) for idx in self.variables_listbox.curselection()]
 
-       # DataFrame container
-       self.data_frame_container = tk.Frame(self.root)
-       self.data_frame_container.pack(pady=10)
+        if selected_vars:
+            self.selected_data = self.combined_df[['Date Time'] + selected_vars]
 
+            # Update the data frame display
+            self.update_data_frame()
 
-   def upload_file(self):
-       self.file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xls;*.xlsx")])
-       if self.file_path:
-           self.variables = self.get_variables_from_file()
-           self.update_variables_listbox()
+    def update_data_frame(self):
+        # Clear the existing DataFrame container
+        for widget in self.data_frame_container.winfo_children():
+            widget.destroy()
 
+        # Display the selected data in a table format
+        if not self.selected_data.empty:
+            # Convert integer values to strings
+            self.selected_data = self.selected_data.astype(str)
+            table = Table(self.data_frame_container, dataframe=self.selected_data, width=1920, height=1080)
+            table.show()
 
-   def get_variables_from_file(self):
-       if self.file_path.endswith('.csv'):
-           df = pd.read_csv(self.file_path)
-       elif self.file_path.endswith('.xls') or self.file_path.endswith('.xlsx'):
-           df = pd.read_excel(self.file_path)
-       return [col for col in df.columns if df[col].dtype == 'object' and not any(char.isdigit() for char in col)]
-
-
-   def update_variables_listbox(self):
-       self.variables_listbox.delete(0, tk.END)
-       for var in self.variables:
-           self.variables_listbox.insert(tk.END, var)
-
-
-   def find_variable(self):
-       search_text = self.find_entry.get().strip().lower()
-       if search_text:
-           matching_indices = []
-           non_matching_indices = []
-           for i, var in enumerate(self.variables):
-               if search_text in var.lower():
-                   matching_indices.append(i)
-               else:
-                   non_matching_indices.append(i)
-           self.variables_listbox.selection_clear(0, tk.END)
-           self.variables_listbox.delete(0, tk.END)
-           for i in matching_indices:
-               self.variables_listbox.insert(tk.END, self.variables[i])
-               self.variables_listbox.itemconfig(tk.END, bg="yellow")
-           for i in non_matching_indices:
-               self.variables_listbox.insert(tk.END, self.variables[i])
-               self.variables_listbox.itemconfig(tk.END, bg="white")
-
-
-   def clear_selection(self):
-       self.variables_listbox.selection_clear(0, tk.END)
-       self.selected_data = pd.DataFrame()  # Clear the selected data
-       self.update_data_frame()
-
-
-   def compile_data(self):
-       # Get the currently selected variables in the listbox
-       selected_vars = [self.variables_listbox.get(idx) for idx in self.variables_listbox.curselection()]
-
-
-       if selected_vars:
-           df = pd.read_excel(self.file_path) if self.file_path.endswith('.xls') or self.file_path.endswith(
-               '.xlsx') else pd.read_csv(self.file_path)
-
-
-           # Filter the DataFrame to include only the selected variables
-           self.selected_data = df[['Date Time'] + selected_vars]
-
-
-           # Update the data frame display
-           self.update_data_frame()
-
-
-   def update_data_frame(self):
-       # Clear the existing DataFrame container
-       for widget in self.data_frame_container.winfo_children():
-           widget.destroy()
-
-
-       # Display the selected data in a table format
-       if not self.selected_data.empty:
-           # Convert integer values to strings
-           self.selected_data = self.selected_data.astype(str)
-
-
-           table = Table(self.data_frame_container, dataframe=self.selected_data, width=1920, height=1080)
-           table.show()
-
-
-   def plot_graph(self):
-       # Plot graph using matplotlib
-       if not self.selected_data.empty:  # Check if there is blank and ignore it
-           plt.figure(figsize=(10, 6))  # Size of graph
-           for col in self.selected_data.columns[1:]:  # Exclude 'Date Time' column
-               # Replace .fillna() with .infer_objects(copy=False)
-               plt.plot(self.selected_data.iloc[1:, 0].infer_objects(copy=False),
-                        self.selected_data.iloc[1:, self.selected_data.columns.get_loc(col)].infer_objects(copy=False),
-                        label=col)
-           plt.xlabel('Date Time')  # Label axis
-           plt.ylabel('Value')
-           plt.title('Selected Variables')
-           plt.xticks(rotation=45)
-           plt.xticks(fontsize=8)
-           plt.legend()
-           plt.show()
-
-
-
-
+    def plot_graph(self):
+        # Plot graph using matplotlib
+        if not self.selected_data.empty:  # Check if there is blank and ignore it
+            plt.figure(figsize=(10, 6))  # Size of graph
+            for col in self.selected_data.columns[1:]:  # Exclude 'Date Time' column
+                plt.plot(self.selected_data.iloc[1:, 0].infer_objects(copy=False),
+                         self.selected_data.iloc[1:, self.selected_data.columns.get_loc(col)].infer_objects(copy=False),
+                         label=col)
+            plt.xlabel('Date Time')  # Label axis
+            plt.ylabel('Value')
+            plt.title('Selected Variables')
+            plt.xticks(rotation=45)
+            plt.xticks(fontsize=8)
+            plt.legend()
+            plt.show()
 
 
 if __name__ == "__main__":
-   root = tk.Tk()
-   app = DataPickerApp(root)
-   root.mainloop()
+    root = tk.Tk()
+    app = DataPickerApp(root)
+    root.mainloop()
+
+#ADD TIMERANGE
