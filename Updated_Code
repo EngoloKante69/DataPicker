@@ -1,9 +1,10 @@
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, simpledialog
 import pandas as pd
 from pandastable import Table
 import matplotlib.pyplot as plt
 import os
+
 
 class DataPickerApp:
     def __init__(self, root):
@@ -52,6 +53,10 @@ class DataPickerApp:
         self.compile_button = tk.Button(variables_frame, text="Compile", command=self.compile_data)
         self.compile_button.pack(pady=10)
 
+        # Time range selection
+        self.time_range_button = tk.Button(variables_frame, text="Select Time Range", command=self.select_time_range)
+        self.time_range_button.pack(pady=10)
+
         # Graph button
         self.plot_graph_button = tk.Button(variables_frame, text="Plot Graph", command=self.plot_graph)
         self.plot_graph_button.pack(pady=10)
@@ -83,7 +88,8 @@ class DataPickerApp:
                 all_dataframes.append(pd.read_excel(file))
 
         self.combined_df = pd.concat(all_dataframes, ignore_index=True)
-        self.variables = [col for col in self.combined_df.columns if self.combined_df[col].dtype == 'object' and not any(char.isdigit() for char in col)]
+        self.variables = [col for col in self.combined_df.columns if
+                          self.combined_df[col].dtype == 'object' and not any(char.isdigit() for char in col)]
         self.update_variables_listbox()
         print(f"Combined data from {len(self.file_paths)} files.")
 
@@ -135,16 +141,46 @@ class DataPickerApp:
         if not self.selected_data.empty:
             # Convert integer values to strings
             self.selected_data = self.selected_data.astype(str)
+
             table = Table(self.data_frame_container, dataframe=self.selected_data, width=1920, height=1080)
             table.show()
+
+    def select_time_range(self):
+        # Ask the user to input the start and end times in the specified format
+        start_time = simpledialog.askstring("Input", "Enter start time (dd/mm/yyyy hh:mm:ss am/pm):")
+        end_time = simpledialog.askstring("Input", "Enter end time (dd/mm/yyyy hh:mm:ss am/pm):")
+
+        if start_time and end_time:
+            try:
+                # Specify the format of the datetime strings in your data
+                datetime_format = "%d/%m/%Y %I:%M:%S %p"
+
+                # Convert the input strings to datetime objects using the specified format
+                start_time = pd.to_datetime(start_time, format=datetime_format)
+                end_time = pd.to_datetime(end_time, format=datetime_format)
+
+                # Convert the 'Date Time' column to datetime objects using the specified format
+                self.selected_data['Date Time'] = pd.to_datetime(self.selected_data['Date Time'],
+                                                                 format=datetime_format)
+
+                # Filter the selected_data DataFrame based on the input time range
+                self.selected_data = self.selected_data[
+                    (self.selected_data['Date Time'] >= start_time) &
+                    (self.selected_data['Date Time'] <= end_time)
+                    ]
+
+                # Update the DataFrame display with the filtered data
+                self.update_data_frame()
+            except Exception as e:
+                print(f"Error in time range selection: {e}")
 
     def plot_graph(self):
         # Plot graph using matplotlib
         if not self.selected_data.empty:  # Check if there is blank and ignore it
             plt.figure(figsize=(10, 6))  # Size of graph
             for col in self.selected_data.columns[1:]:  # Exclude 'Date Time' column
-                plt.plot(self.selected_data.iloc[1:, 0].infer_objects(copy=False),
-                         self.selected_data.iloc[1:, self.selected_data.columns.get_loc(col)].infer_objects(copy=False),
+                plt.plot(pd.to_datetime(self.selected_data.iloc[:, 0]),
+                         self.selected_data[col],
                          label=col)
             plt.xlabel('Date Time')  # Label axis
             plt.ylabel('Value')
@@ -159,5 +195,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = DataPickerApp(root)
     root.mainloop()
-
-#ADD TIMERANGE
